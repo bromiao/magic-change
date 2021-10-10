@@ -1,0 +1,571 @@
+diff --git a/node_modules/view-design/src/components/date-picker/base/mixin.js b/node_modules/view-design/src/components/date-picker/base/mixin.js
+index 329042c..8a056fe 100644
+--- a/node_modules/view-design/src/components/date-picker/base/mixin.js
++++ b/node_modules/view-design/src/components/date-picker/base/mixin.js
+@@ -47,7 +47,7 @@ export default {
+             const newDate = new Date(clearHours(cell.date));
+ 
+             this.$emit('on-pick', newDate);
+-            this.$emit('on-pick-click');
++            this.$emit('on-pick-click', newDate);
+         },
+         handleMouseMove (cell) {
+             if (!this.rangeState.selecting) return;
+diff --git a/node_modules/view-design/src/components/date-picker/panel/Date/date-range.vue b/node_modules/view-design/src/components/date-picker/panel/Date/date-range.vue
+index 1fbc958..82a5f71 100644
+--- a/node_modules/view-design/src/components/date-picker/panel/Date/date-range.vue
++++ b/node_modules/view-design/src/components/date-picker/panel/Date/date-range.vue
+@@ -1,5 +1,5 @@
+ <template>
+-    <div :class="classes" @mousedown.prevent>
++    <div :class="classes">
+         <div :class="[prefixCls + '-sidebar']" v-if="shortcuts.length">
+             <div
+                 :class="[prefixCls + '-shortcut']"
+@@ -7,6 +7,49 @@
+                 @click="handleShortcutClick(shortcut)">{{ shortcut.text }}</div>
+         </div>
+         <div :class="panelBodyClasses">
++            <Row :class="[prefixCls + '-content-input-wrapper']" style="margin-bottom: 5px;padding-top: 10px;">
++              <Col span="11" class="date-time-start">
++                <Row style="margin-bottom: 5px;">
++                  <Col span="11" offset="1">
++                    <Input
++                         v-model="start_Date"
++                         :placeholder="t('开始日期')"
++                         @on-change="changeStartDate"
++                    />
++                  </Col>
++                  <Col span="11" offset="1">
++                    <TimePickerScroll
++                        v-model="start_Time"
++                        type="time"
++                        :placeholder="t('开始时间')"
++                        @on-change="changeStartTime"
++                    ></TimePickerScroll>
++                  </Col>
++                </Row>
++              </Col>
++              <Col span="1" offset="1" style="margin-left: 10px; line-height: 32px;">
++                <Icon type="ios-arrow-forward" />
++              </Col>
++              <Col span="11" class="date-time-end">
++                <Row style="margin-bottom: 5px;">
++                  <Col span="11" offset="1">
++                    <Input
++                        v-model="end_Date"
++                        :placeholder="t('结束日期')"
++                        @on-change="changeEndDate"
++                    />
++                  </Col>
++                  <Col span="11" offset="1">
++                    <TimePickerScroll
++                        v-model="end_Time"
++                        type="time"
++                        :placeholder="t('结束时间')"
++                        @on-change="changeEndTime"
++                    ></TimePickerScroll>
++                  </Col>
++                </Row>
++              </Col>
++            </Row>
+             <div :class="[prefixCls + '-content', prefixCls + '-content-left']" v-show="!isTime">
+                 <div :class="[datePrefixCls + '-header']" v-show="currentView !== 'time'">
+                     <span
+@@ -45,7 +88,7 @@
+ 
+                     @on-change-range="handleChangeRange"
+                     @on-pick="panelPickerHandlers.left"
+-                    @on-pick-click="handlePickClick"
++                    @on-pick-click="handlePickClick($event, 'left')"
+                 ></component>
+             </div>
+             <div :class="[prefixCls + '-content', prefixCls + '-content-right']" v-show="!isTime">
+@@ -86,7 +129,7 @@
+ 
+                     @on-change-range="handleChangeRange"
+                     @on-pick="panelPickerHandlers.right"
+-                    @on-pick-click="handlePickClick"></component>
++                    @on-pick-click="handlePickClick($event, 'right')"></component>
+             </div>
+             <div :class="[prefixCls + '-content']" v-show="isTime">
+                 <time-picker
+@@ -105,8 +148,6 @@
+             </div>
+             <Confirm
+                 v-if="confirm"
+-                :show-time="showTime"
+-                :is-time="isTime"
+                 :time-disabled="timeDisabled"
+                 @on-pick-toggle-time="handleToggleTime"
+                 @on-pick-clear="handlePickClear"
+@@ -122,6 +163,13 @@
+     import TimePicker from '../Time/time-range.vue';
+     import Confirm from '../../base/confirm.vue';
+ 
++    import TimePickerScroll from '../../picker/time-picker'
++    import Message from '../../../message'
++
++    import Row from "../../../row";
++    import Col from "../../../col";
++    import Input from '../../../input'
++
+     import { toDate, initTimeDate, formatDateLabels } from '../../util';
+     import datePanelLabel from './date-panel-label.vue';
+ 
+@@ -140,7 +188,7 @@
+     export default {
+         name: 'RangeDatePickerPanel',
+         mixins: [ Mixin, Locale, DateMixin ],
+-        components: { Icon, DateTable, YearTable, MonthTable, TimePicker, Confirm, datePanelLabel },
++        components: { Icon, DateTable, YearTable, MonthTable, TimePicker, Confirm, datePanelLabel, TimePickerScroll, Row, Col, Input },
+         props: {
+             // more props in the mixin
+             splitPanels: {
+@@ -161,7 +209,11 @@
+                 leftPickerTable: `${this.selectionMode}-table`,
+                 rightPickerTable: `${this.selectionMode}-table`,
+                 leftPanelDate: leftPanelDate,
+-                rightPanelDate: new Date(leftPanelDate.getFullYear(), leftPanelDate.getMonth() + 1, 1)
++                rightPanelDate: new Date(leftPanelDate.getFullYear(), leftPanelDate.getMonth() + 1, 1),
++                start_Date: '',
++                end_Date: '',
++                start_Time: '',
++                end_Time: '',
+             };
+         },
+         computed: {
+@@ -249,7 +301,7 @@
+                 this.currentView = type || 'range';
+             },
+             focusedDate(date){
+-                this.setPanelDates(date || new Date());
++              this.setPanelDates(date || new Date());
+             }
+         },
+         methods: {
+@@ -375,6 +427,66 @@
+             handleChangeRange (val) {
+                 this.rangeState.to = val;
+             },
++            changeStartDate() {
++              if (this.start_Date.length === 10) {
++                // this.$emit('on-change', [start_Date, end_Date], 'date')
++                this.start_Time =  this.start_Time || '00:00:00'
++                const {start_Date, start_Time, end_Date, end_Time} = this
++
++                if (start_Date && end_Date) {
++                  this.$emit('on-pick',
++                      [new Date(`${start_Date} ${start_Time}`), new Date(`${end_Date} ${end_Time}`)],
++                    false,
++                    'date'
++                  )
++                }
++              } else if (this.start_Date.length > 10) {
++                Message.error(this.t('日期错误'))
++                this.start_Date = ''
++              }
++            },
++            changeStartTime(time) {
++              this.start_Time = time
++              const {start_Date, start_Time, end_Date, end_Time} = this
++
++              if (start_Date && end_Date) {
++                this.$emit('on-pick',
++                    [new Date(`${start_Date} ${start_Time}`), new Date(`${end_Date} ${end_Time}`)],
++                    false,
++                    'date'
++                )
++              }
++            },
++            changeEndDate() {
++              if (this.end_Date.length === 10) {
++                // this.$emit('on-change', [start_Date, end_Date], 'date')
++                this.end_Time =  this.end_Time || '00:00:00'
++                const {start_Date, start_Time, end_Date, end_Time} = this
++
++                if (start_Date && end_Date) {
++                  this.$emit('on-pick',
++                      [new Date(`${start_Date} ${start_Time}`), new Date(`${end_Date} ${end_Time}`)],
++                      false,
++                      'date'
++                  )
++                }
++              } else if (this.end_Date.length > 10) {
++                Message.error(this.t('日期错误'))
++                this.end_Date = ''
++              }
++            },
++            changeEndTime(time) {
++              this.end_Time = time
++              const {start_Date, start_Time, end_Date, end_Time} = this
++
++              if (start_Date && end_Date) {
++                this.$emit('on-pick',
++                    [new Date(`${start_Date} ${start_Time}`), new Date(`${end_Date} ${end_Time}`)],
++                    false,
++                    'date'
++                )
++              }
++            }
+         },
+     };
+ </script>
+diff --git a/node_modules/view-design/src/components/date-picker/panel/Date/date.vue b/node_modules/view-design/src/components/date-picker/panel/Date/date.vue
+index 917a922..f7d440a 100644
+--- a/node_modules/view-design/src/components/date-picker/panel/Date/date.vue
++++ b/node_modules/view-design/src/components/date-picker/panel/Date/date.vue
+@@ -1,5 +1,5 @@
+ <template>
+-    <div :class="classes" @mousedown.prevent>
++    <div :class="classes">
+         <div :class="[prefixCls + '-sidebar']" v-if="shortcuts.length">
+             <div
+                 :class="[prefixCls + '-shortcut']"
+@@ -7,6 +7,40 @@
+                 @click="handleShortcutClick(shortcut)">{{ shortcut.text }}</div>
+         </div>
+         <div :class="[prefixCls + '-body']">
++            <div class="ivu-picker-panel-content-input-wrapper" style="width: 216px;">
++              <Row style="margin-bottom: 5px;">
++                <Col span="10" offset="1">
++                  <Input
++                      v-if="itemType === 'start'"
++                      v-model="start_Date"
++                      :placeholder="t('开始日期')"
++                      @on-change="changeDate(itemType)"
++                  />
++                  <Input
++                      v-if="itemType === 'end'"
++                      v-model="end_Date"
++                      :placeholder="t('结束日期')"
++                      @on-change="changeDate(itemType)"
++                  />
++                </Col>
++                <Col span="10" offset="2">
++                  <TimePickerScroll
++                      v-if="itemType === 'start'"
++                      v-model="start_Time"
++                      type="time"
++                      :placeholder="t('开始时间')"
++                      @on-change="changeTime($event, itemType)"
++                  ></TimePickerScroll>
++                  <TimePickerScroll
++                      v-if="itemType === 'end'"
++                      v-model="end_Time"
++                      type="time"
++                      :placeholder="t('结束时间')"
++                      @on-change="changeTime($event, itemType)"
++                  ></TimePickerScroll>
++                </Col>
++              </Row>
++            </div>
+             <div :class="[datePrefixCls + '-header']" v-show="currentView !== 'time'">
+                 <span
+                     :class="iconBtnCls('prev', '-double')"
+@@ -65,7 +99,6 @@
+             </div>
+             <Confirm
+                 v-if="confirm"
+-                :show-time="showTime"
+                 :is-time="isTime"
+                 @on-pick-toggle-time="handleToggleTime"
+                 @on-pick-clear="handlePickClear"
+@@ -83,6 +116,13 @@
+     import Confirm from '../../base/confirm.vue';
+     import datePanelLabel from './date-panel-label.vue';
+ 
++    import TimePickerScroll from '../../picker/time-picker'
++    import Message from '../../../message'
++
++    import Row from "../../../row";
++    import Col from "../../../col";
++    import Input from '../../../input'
++
+     import Mixin from '../panel-mixin';
+     import DateMixin from './date-panel-mixin';
+     import Locale from '../../../../mixins/locale';
+@@ -95,12 +135,16 @@
+     export default {
+         name: 'DatePickerPanel',
+         mixins: [ Mixin, Locale, DateMixin ],
+-        components: { Icon, DateTable, YearTable, MonthTable, TimePicker, Confirm, datePanelLabel },
++        components: { Icon, DateTable, YearTable, MonthTable, TimePicker, Confirm, datePanelLabel, TimePickerScroll, Row, Col, Input },
+         props: {
+             // more props in the mixin
+             multiple: {
+                 type: Boolean,
+                 default: false
++            },
++            itemType: {
++              type: String,
++              default: '',
+             }
+         },
+         data () {
+@@ -113,7 +157,11 @@
+                 currentView: selectionMode || 'date',
+                 pickerTable: this.getTableType(selectionMode),
+                 dates: dates,
+-                panelDate: this.startDate || dates[0] || new Date()
++                panelDate: this.startDate || dates[0] || new Date(),
++                start_Date: '',
++                end_Date: '',
++                start_Time: '',
++                end_Time: '',
+             };
+         },
+         computed: {
+@@ -145,6 +193,22 @@
+             },
+             timeDisabled(){
+                 return !this.dates[0];
++            },
++            userInput() {
++              let obj
++              switch (this.itemType) {
++                case 'start':
++                  obj = {placeholder: '开始日期'}
++                  break;
++                case 'end':
++                  obj = {placeholder: '结束日期'}
++                  break;
++                default:
++                  obj = {placeholder: ''}
++                  break;
++              }
++
++              return obj
+             }
+         },
+         watch: {
+@@ -208,6 +272,35 @@
+                 this.dates = [value];
+                 this.$emit('on-pick', value, false, type || selectionMode);
+             },
++            changeDate(type) {
++              if (this[type + '_Date'].length === 10) {
++                this[type + '_Time'] =  this[type + '_Time'] || '00:00:00'
++                const {start_Date, start_Time, end_Date, end_Time} = this
++
++                if (this[type + '_Date']) {
++                  this.$emit('on-pick',
++                      new Date(`${this[type + '_Date']} ${this[type + '_Time']}`),
++                      false,
++                      'date'
++                  )
++                }
++              } else if (this[type + '_Date'].length > 10) {
++                Message.error(this.t('日期错误'))
++                this[type + '_Date'] = ''
++              }
++            },
++            changeTime(time, type) {
++              this[type + '_Time'] = time
++              const {start_Date, start_Time, end_Date, end_Time} = this
++
++              if (this[type + '_Date']) {
++                this.$emit('on-pick',
++                    new Date(`${this[type + '_Date']} ${this[type + '_Time']}`),
++                    false,
++                    'date'
++                )
++              }
++            },
+         },
+     };
+ </script>
+diff --git a/node_modules/view-design/src/components/date-picker/panel/Time/time.vue b/node_modules/view-design/src/components/date-picker/panel/Time/time.vue
+index 1f57658..dabc293 100644
+--- a/node_modules/view-design/src/components/date-picker/panel/Time/time.vue
++++ b/node_modules/view-design/src/components/date-picker/panel/Time/time.vue
+@@ -1,5 +1,5 @@
+ <template>
+-    <div :class="[prefixCls + '-body-wrapper']" @mousedown.prevent>
++    <div :class="[prefixCls + '-body-wrapper']">
+         <div :class="[prefixCls + '-body']">
+             <div :class="[timePrefixCls + '-header']" v-if="showDate">{{ visibleDate }}</div>
+             <div :class="[prefixCls + '-content']">
+diff --git a/node_modules/view-design/src/components/date-picker/panel/panel-mixin.js b/node_modules/view-design/src/components/date-picker/panel/panel-mixin.js
+index dbf66d1..44386ed 100644
+--- a/node_modules/view-design/src/components/date-picker/panel/panel-mixin.js
++++ b/node_modules/view-design/src/components/date-picker/panel/panel-mixin.js
+@@ -1,3 +1,5 @@
++import {formatDate} from '../util'
++
+ const prefixCls = 'ivu-picker-panel';
+ const datePrefixCls = 'ivu-date-picker';
+ 
+@@ -22,14 +24,49 @@ export default {
+         },
+         handlePickClear () {
+             this.resetView();
++            this.clearUserInput();
+             this.$emit('on-pick-clear');
+         },
+         handlePickSuccess () {
+             this.resetView();
+             this.$emit('on-pick-success');
+         },
+-        handlePickClick () {
++        handlePickClick (val) {
+             this.$emit('on-pick-click');
++
++            if (this.itemType) {
++                const { itemType } = this
++                const [date, time] = formatDate(val, 'yyyy-MM-dd HH:mm:ss').split(' ')
++                this[itemType + '_Date'] = date
++                this[itemType + '_Time'] = time
++
++                return
++            }
++
++            if (!this.datetime_range || this.datetime_range.length > 1) {
++                this.datetime_range = []
++            }
++            this.datetime_range.push(val)
++
++            if (this.datetime_range.length === 2) {
++                this.datetime_range.sort((d1, d2) => d1 - d2)
++            }
++
++            const [startDate, endDate] = this.datetime_range.map(date => formatDate(date, 'yyyy-MM-dd HH:mm:ss'))
++            const [sDate, sTime] = startDate.split(' ')
++
++            let eDate = ''
++            let eTime = ''
++
++            if (endDate) {
++                const end_Date = endDate.split(' ')
++                eDate = end_Date[0]
++                eTime = end_Date[1]
++            }
++            this.start_Date = sDate
++            this.start_Time = sTime
++            this.end_Date = eDate
++            this.end_Time = eTime
+         },
+         resetView(){
+             setTimeout(
+@@ -37,6 +74,13 @@ export default {
+                 500 // 500ms so the dropdown can close before changing
+             );
+         },
++        clearUserInput() {
++          this.start_Date = ''
++          this.start_Time = ''
++          this.end_Date = ''
++          this.end_Time = ''
++          this.datetime_range = []
++        },
+         handleClear() {
+             this.dates = this.dates.map(() => null);
+             this.rangeState = {};
+diff --git a/node_modules/view-design/src/components/date-picker/picker.vue b/node_modules/view-design/src/components/date-picker/picker.vue
+index b600eb7..f251edd 100644
+--- a/node_modules/view-design/src/components/date-picker/picker.vue
++++ b/node_modules/view-design/src/components/date-picker/picker.vue
+@@ -10,7 +10,7 @@
+                 <i-input
+                     :key="forceInputRerender"
+                     :element-id="elementId"
+-                    :class="[prefixCls + '-editor']"
++                    :class="[prefixCls + '-editor', 'aaa']"
+                     :readonly="!editable || readonly"
+                     :disabled="itemDisabled"
+                     :size="size"
+@@ -19,7 +19,7 @@
+                     :name="name"
+                     ref="input"
+ 
+-                    @on-input-change="handleInputChange"
++                    @input.native="handleInputChange"
+                     @on-focus="handleFocus"
+                     @on-blur="handleBlur"
+                     @click.native="handleFocus"
+@@ -58,6 +58,7 @@
+                         :show-week-numbers="showWeekNumbers"
+                         :picker-type="type"
+                         :multiple="multiple"
++                        :item-type="itemType"
+                         :focused-date="focusedDate"
+ 
+                         :time-picker-options="timePickerOptions"
+@@ -155,13 +156,17 @@
+                 type: Boolean,
+                 default: false
+             },
++            itemType: {
++                type: String,
++                default: '',
++            },
+             timePickerOptions: {
+                 default: () => ({}),
+                 type: Object,
+             },
+             splitPanels: {
+                 type: Boolean,
+-                default: false
++                default: true
+             },
+             showWeekNumbers: {
+                 type: Boolean,
+@@ -276,6 +281,7 @@
+             },
+             publicStringValue(){
+                 const {formatDate, publicVModelValue, type} = this;
++
+                 if (type.match(/^time/)) return publicVModelValue;
+                 if (this.multiple) return formatDate(publicVModelValue);
+                 return Array.isArray(publicVModelValue) ? publicVModelValue.map(formatDate) : formatDate(publicVModelValue);
+@@ -390,19 +396,19 @@
+                     return false;
+                 }
+ 
+-                if (e && e.type === 'mousedown' && this.visible) {
+-                    e.preventDefault();
+-                    e.stopPropagation();
+-                    return;
+-                }
++                // if (e && e.type === 'mousedown' && this.visible) {
++                //     e.preventDefault();
++                //     e.stopPropagation();
++                //     return;
++                // }
+ 
+                 if (this.visible) {
+                     const pickerPanel = this.$refs.pickerPanel && this.$refs.pickerPanel.$el;
+                     if (e && pickerPanel && pickerPanel.contains(e.target)) return; // its a click inside own component, lets ignore it.
+ 
+                     this.visible = false;
+-                    e && e.preventDefault();
+-                    e && e.stopPropagation();
++                    // e && e.preventDefault();
++                    // e && e.stopPropagation();
+                     this.$emit('on-clickoutside', e);
+                     return;
+                 }
+@@ -637,6 +643,7 @@
+                 this.focusedDate = focusedDate;
+             },
+             handleInputChange (event) {
++              if (event.target.value.length < 8) return
+                 const isArrayValue = this.type.includes('range') || this.multiple;
+                 const oldValue = this.visualValue;
+                 const newValue = event.target.value;
+@@ -688,6 +695,7 @@
+             },
+             emitChange (type) {
+                 this.$nextTick(() => {
++                    // console.log(2222, this.publicStringValue, type)
+                     this.$emit('on-change', this.publicStringValue, type);
+                     this.dispatch('FormItem', 'on-form-change', this.publicStringValue);
+                 });
+@@ -746,6 +754,7 @@
+                 }
+             },
+             onPick(dates, visible = false, type) {
++              // console.log(4444, dates, type)
+                 if (this.multiple){
+                     const pickedTimeStamp = dates.getTime();
+                     const indexOfPickedDate = this.internalValue.findIndex(date => date && date.getTime() === pickedTimeStamp);
